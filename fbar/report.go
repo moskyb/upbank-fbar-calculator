@@ -52,6 +52,11 @@ func GenerateReport(upAPIToken string, year int) (*Report, error) {
 		go func(acc upapi.Account) {
 			defer wg.Done()
 
+			if acc.Attributes.CreatedAt.After(time.Date(year+1, time.January, 1, 0, 0, 0, 0, zone)) {
+				// Account created after the end of the calendar year we're looking at, so it doesn't need to be reported on
+				return
+			}
+
 			xacts, err := client.PaginateAllTransactionsForAccount(context.Background(), acc.ID, upapi.ListTransactionsParams{
 				Until: time.Date(year+1, time.January, 1, 0, 0, 0, 0, zone),
 			})
@@ -90,7 +95,7 @@ func GenerateReport(upAPIToken string, year int) (*Report, error) {
 func (r *Report) PrettyString() string {
 	sb := strings.Builder{}
 	sb.WriteString(fmt.Sprintf("FBAR Report for Upbank, CY%d\n\n", r.FinancialYear))
-	sb.WriteString(fmt.Sprintf("%d accounts held:\n", len(r.Entries)))
+	sb.WriteString(fmt.Sprintf("%d accounts held in %d:\n", len(r.Entries), r.FinancialYear))
 
 	sortedEntries := slices.SortedFunc(maps.Values(r.Entries), func(i, j ReportEntry) int {
 		return strings.Compare(stripEmoji(i.AccountName), stripEmoji(j.AccountName))
