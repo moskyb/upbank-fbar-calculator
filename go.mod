@@ -1,6 +1,6 @@
 module github.com/moskyb/upbank-fbar-calculator
 
-go 1.21.5
+go 1.24.0
 
 require (
 	github.com/gocarina/gocsv v0.0.0-20231116093920-b87c2d0e983a

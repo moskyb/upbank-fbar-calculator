@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -86,14 +89,19 @@ func GenerateReport(upAPIToken string, year int) (*Report, error) {
 
 func (r *Report) PrettyString() string {
 	sb := strings.Builder{}
-	sb.WriteString(fmt.Sprintf("FBAR Report for Upbank, FY%d\n\n", r.FinancialYear))
+	sb.WriteString(fmt.Sprintf("FBAR Report for Upbank, CY%d\n\n", r.FinancialYear))
 	sb.WriteString(fmt.Sprintf("%d accounts held:\n", len(r.Entries)))
-	for account := range r.Entries {
-		sb.WriteString(fmt.Sprintf("\t%s\n", account))
+
+	sortedEntries := slices.SortedFunc(maps.Values(r.Entries), func(i, j ReportEntry) int {
+		return strings.Compare(stripEmoji(i.AccountName), stripEmoji(j.AccountName))
+	})
+
+	for _, entry := range sortedEntries {
+		sb.WriteString(fmt.Sprintf("\t%s\n", entry.AccountName))
 	}
 	sb.WriteString("\n")
 
-	for _, entry := range r.Entries {
+	for _, entry := range sortedEntries {
 		sb.WriteString(fmt.Sprintf("Account: %s\n", entry.AccountName))
 		sb.WriteString(fmt.Sprintf("\tTransaction count: %d\n", entry.TransactionCount))
 		sb.WriteString(fmt.Sprintf("\tHigh water mark: %s\n", PrettyMoney(entry.HighWaterMark)))
@@ -102,6 +110,12 @@ func (r *Report) PrettyString() string {
 	}
 
 	return sb.String()
+}
+
+var emojiRE = regexp.MustCompile(`[[:^ascii:]]`)
+
+func stripEmoji(s string) string {
+	return strings.TrimSpace(emojiRE.ReplaceAllString(s, ""))
 }
 
 func PrettyMoney(amount int) string {
