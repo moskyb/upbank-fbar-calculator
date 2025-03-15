@@ -63,12 +63,12 @@ func GenerateReport(upAPIToken string, year int) (*Report, error) {
 			ledger := ledger.FromTransactions(acc.Attributes.DisplayName, xacts)
 			r.Entries[acc.Attributes.DisplayName] = ReportEntry{
 				AccountName:      acc.Attributes.DisplayName,
-				HighWaterMark:    ledger.HighWaterMark(),
+				HighWaterMark:    ledger.HighWaterMark(year),
 				ClosingBalance:   ledger.CurrentBalance,
-				TransactionCount: len(ledger.Entries),
+				TransactionCount: len(ledger.TransactionsForYear(year)),
 			}
 
-			err = ledger.DumpCSV()
+			err = ledger.DumpCSV(year)
 			if err != nil {
 				errsMtx.Lock()
 				errs = append(errs, fmt.Errorf("failed to dump CSV for account %s: %w", acc.ID, err))

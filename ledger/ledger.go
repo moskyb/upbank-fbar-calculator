@@ -17,6 +17,12 @@ type Ledger struct {
 	Entries        []Entry
 }
 
+type Money int
+
+func (m Money) MarshalCSV() (string, error) {
+	return fmt.Sprintf("%.2f", float64(m)/100), nil
+}
+
 type Entry struct {
 	ID string `json:"id" csv:"id"`
 
@@ -26,8 +32,8 @@ type Entry struct {
 	Description string  `json:"description" csv:"description"`
 	Message     *string `json:"message" csv:"message"`
 
-	Amount       int `json:"amount" csv:"amount"`
-	BalanceAfter int `json:"balance_after" csv:"balance_after"`
+	Amount       Money `json:"amount" csv:"amount"`
+	BalanceAfter Money `json:"balance_after" csv:"balance_after"`
 }
 
 func FromTransactions(accountName string, xacts []upapi.Transaction) *Ledger {
@@ -35,10 +41,6 @@ func FromTransactions(accountName string, xacts []upapi.Transaction) *Ledger {
 
 	slices.Reverse(xacts)
 	for _, xact := range xacts {
-		if xact.Attributes.Cashback != nil {
-			fmt.Println("cashback", xact.ID, xact.Attributes.Cashback.Amount.ValueInBaseUnits)
-		}
-
 		amount := xact.Attributes.Amount.ValueInBaseUnits
 
 		if xact.Attributes.RoundUp != nil {
@@ -58,8 +60,8 @@ func FromTransactions(accountName string, xacts []upapi.Transaction) *Ledger {
 			Description: xact.Attributes.Description,
 			Message:     xact.Attributes.Message,
 
-			Amount:       amount,
-			BalanceAfter: ledger.CurrentBalance + amount,
+			Amount:       Money(amount),
+			BalanceAfter: Money(ledger.CurrentBalance + amount),
 		})
 
 		ledger.CurrentBalance += amount
@@ -68,18 +70,29 @@ func FromTransactions(accountName string, xacts []upapi.Transaction) *Ledger {
 	return ledger
 }
 
-func (l *Ledger) HighWaterMark() int {
-	hwm := 0
+func (l *Ledger) HighWaterMark(year int) int {
+	hwm := Money(0)
 	for _, entry := range l.Entries {
-		if entry.BalanceAfter > hwm {
+		if entry.CreatedAt.Year() == year && entry.BalanceAfter > hwm {
 			hwm = entry.BalanceAfter
 		}
 	}
 
-	return hwm
+	return int(hwm)
 }
 
-func (l *Ledger) DumpCSV() error {
+func (l *Ledger) TransactionsForYear(year int) []Entry {
+	var xacts []Entry
+	for _, entry := range l.Entries {
+		if entry.CreatedAt.Year() == year {
+			xacts = append(xacts, entry)
+		}
+	}
+
+	return xacts
+}
+
+func (l *Ledger) DumpCSV(year int) error {
 	name := "./" + strings.ReplaceAll(l.AccountName, " ", "-") + ".csv"
 	f, err := os.Create(name)
 	if err != nil {
@@ -87,7 +100,7 @@ func (l *Ledger) DumpCSV() error {
 	}
 	defer f.Close()
 
-	err = gocsv.MarshalFile(l.Entries, f)
+	err = gocsv.MarshalFile(l.TransactionsForYear(year), f)
 	if err != nil {
 		return fmt.Errorf("failed to marshal CSV: %w", err)
 	}
