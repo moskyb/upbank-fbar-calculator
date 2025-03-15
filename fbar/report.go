@@ -50,7 +50,7 @@ func GenerateReport(upAPIToken string, year int) (*Report, error) {
 			defer wg.Done()
 
 			xacts, err := client.PaginateAllTransactionsForAccount(context.Background(), acc.ID, upapi.ListTransactionsParams{
-				Until: time.Date(year+1, 0, 0, 0, 0, 0, 0, zone),
+				Until: time.Date(year+1, time.January, 1, 0, 0, 0, 0, zone),
 			})
 			if err != nil {
 				errsMtx.Lock()
