@@ -72,6 +72,11 @@ func FromTransactions(accountName string, xacts []upapi.Transaction) *Ledger {
 
 func (l *Ledger) HighWaterMark(year int) int {
 	hwm := Money(0)
+
+	if len(l.Entries) != 0 && len(l.TransactionsForYear(year)) == 0 {
+		panic(fmt.Sprintf("MISSING FUNCTIONALITY: Attempting to calculate high watermark for account %s in year %d. %s has had transactions, but none this year. Please fix this, ben", l.AccountName, year, l.AccountName))
+	}
+
 	for _, entry := range l.Entries {
 		if entry.CreatedAt.Year() == year && entry.BalanceAfter > hwm {
 			hwm = entry.BalanceAfter
